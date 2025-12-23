@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>隔離郵件自助放行</title>
+</head>
+<body>
+  <h2>搜尋被擋信</h2>
+
+  <input id="subject" placeholder="主旨關鍵字">
+  <button onclick="search()">搜尋</button>
+
+  <ul id="result"></ul>
+
+<script>
+function search() {
+  const subject = document.getElementById("subject").value;
+  fetch(`/api/search?subject=${subject}`)
+    .then(r => r.json())
+    .then(data => {
+      const ul = document.getElementById("result");
+      ul.innerHTML = "";
+      data.forEach(mail => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          ${mail.subject}
+          <button onclick="release('${mail.mail_id}')">放行</button>
+        `;
+        ul.appendChild(li);
+      });
+    });
+}
+
+function release(id) {
+  fetch("/api/release", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({mail_id: id})
+  }).then(() => alert("已送出放行"));
+}
+</script>
+</body>
+</html>
