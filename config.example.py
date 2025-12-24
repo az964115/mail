@@ -1,5 +1,0 @@
-MAIL_SERVER_URL = "https://MAIL_SERVER_IP:PORT"
-
-ADMIN_USER = ""
-ADMIN_PASS = ""
-
