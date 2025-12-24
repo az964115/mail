@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>隔離郵件放行</title>
+</head>
+<body>
+    <h2>隔離郵件放行確認</h2>
+
+    <p><strong>收件人：</strong>{{ rcpt }}</p>
+
+    <button onclick="release()">確認放行</button>
+
+    <p id="msg"></p>
+
+    <script>
+    function release() {
+        const formData = new FormData();
+        formData.append("KEY", "{{ key }}");
+        formData.append("RCPT", "{{ rcpt }}");
+
+        fetch("/api/release", {
+            method: "POST",
+            body: formData
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                document.getElementById("msg").innerText = "✅ 郵件已放行，請稍後查看信箱";
+            } else {
+                document.getElementById("msg").innerText = "❌ " + d.message;
+            }
+        });
+    }
+    </script>
+</body>
+</html>

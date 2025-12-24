@@ -1,74 +1,86 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
-import requests
-from bs4 import BeautifulSoup
-from config import MAIL_SERVER_URL, ADMIN_USER, ADMIN_PASS
 
-session = requests.Session()
-session.verify = False  # 內網自簽憑證
+LOGIN_URL = "https://192.168.8.25:800/login.php"
+USERNAME = "admin"
+PASSWORD = "boxadmin"
 
-def login():
-    url = f"{MAIL_SERVER_URL}/login.php"
-    data = {
-        "username": ADMIN_USER,
-        "password": ADMIN_PASS
-    }
-    r = session.post(url, data=data)
-    return r.status_code == 200
+class Quarantine:
+    def __init__(self):
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--ignore-certificate-errors")
+        chrome_options.add_argument("--ignore-ssl-errors")
+        # chrome_options.add_argument("--headless")  # 先不要用 headless
+        self.driver = webdriver.Chrome(options=chrome_options)
+        self.login()
 
+    def login(self):
+        self.driver.get(LOGIN_URL)
+        wait = WebDriverWait(self.driver, 10)
 
-def search_quarantine(subject="", time_period="2"):
-    url = f"{MAIL_SERVER_URL}/STaction.php"
+        # 輸入帳號密碼
+        username_input = wait.until(EC.presence_of_element_located((By.NAME, "ID")))
+        username_input.send_keys(USERNAME)
 
-    data = {
-        "page": "ST",
-        "op": "search",
-        "mod": "search",
-        "action": "list",
+        password_input = self.driver.find_element(By.NAME, "PASSWORD")
+        password_input.send_keys(PASSWORD)
 
-        "range": "12",              # 隔離郵件
-        "time_period": time_period, # 2 = 本週（依你系統）
+        # 點登入按鈕
+        login_btn = self.driver.find_element(By.XPATH, '//a[@class="BUTTON" and text()="登入"]')
+        login_btn.click()
 
-        "subject": subject,
-        "pagesize": "50",
-        "nowpage": "1",
-    }
+        # 等待跳轉到搜尋頁
+        time.sleep(2)
+        self.driver.get("https://192.168.8.25:800/?page=ST&op=search&mod=search&selecttab=0")
+        print("[LOGIN] 登入完成並進入搜尋頁")
 
-    r = session.post(url, data=data)
-    r.raise_for_status()
+    def search_quarantine(self, subject, time_period="3"):
+        driver = self.driver
+        wait = WebDriverWait(driver, 10)
 
-    soup = BeautifulSoup(r.text, "html.parser")
+        # 切換到搜尋 iframe
+        iframe = wait.until(EC.presence_of_element_located((By.TAG_NAME, "iframe")))
+        driver.switch_to.frame(iframe)
+        print("[INFO] 已切換到 iframe")
 
-    results = []
+        # 選擇隔離郵件
+        driver.find_element(By.CSS_SELECTOR, 'label[for="search_range_quarantine"]').click()
 
-    for row in soup.select("table tr"):
-        cols = row.find_all("td")
-        if len(cols) >= 4:
-            results.append({
-                "mail_id": cols[0].find("input")["value"]
-                            if cols[0].find("input") else "",
-                "from": cols[1].get_text(strip=True),
-                "to": cols[2].get_text(strip=True),
-                "subject": cols[3].get_text(strip=True),
-            })
+        # 選擇時間區間
+        driver.find_element(By.CSS_SELECTOR, f'label[for="search_timeperiod{time_period}"]').click()
 
-    return results
+        # 輸入主旨
+        search_input = driver.find_element(By.NAME, "subject")
+        search_input.clear()
+        search_input.send_keys(subject)
 
+        # 點擊查詢（使用 JS 確保能點擊）
+        search_btn = wait.until(
+            EC.presence_of_element_located(
+                (By.XPATH, '//a[contains(@class,"CENTER") and contains(normalize-space(.),"查詢")]')
+            )
+        )
+        driver.execute_script("arguments[0].click();", search_btn)
+        print("[INFO] 已點擊查詢")
 
-def release_mail(mail_id):
-    url = f"{MAIL_SERVER_URL}/STaction.php"
+        # 等待結果表格
+        time.sleep(3)
+        results = []
+        try:
+            table = driver.find_element(By.ID, "resultTable")
+            rows = table.find_elements(By.TAG_NAME, "tr")
+            for row in rows[1:]:
+                cols = row.find_elements(By.TAG_NAME, "td")
+                if cols:
+                    results.append({
+                        "date": cols[0].text,
+                        "from": cols[1].text,
+                        "subject": cols[2].text
+                    })
+        except:
+            pass
 
-    data = {
-        "op": "search",
-        "action": "list",
-
-        # 放行（重新投遞）
-        "resend": "resend",
-        "qmails_s[]": mail_id,
-
-        "range": "12",
-        "page": "ST",
-    }
-
-    r = session.post(url, data=data)
-    r.raise_for_status()
-    return True
+        return results

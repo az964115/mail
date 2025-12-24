@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>放行結果</title>
+</head>
+<body>
+    {% if success %}
+        <h2>✅ 放行成功</h2>
+    {% else %}
+        <h2>❌ 放行失敗</h2>
+        <p>{{ message }}</p>
+    {% endif %}
+</body>
+</html>

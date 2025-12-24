@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>隔離郵件放行</title>
+</head>
+<body>
+    <h2>隔離郵件放行系統</h2>
+    <p>請輸入放行參數，例如: <strong>KEY=jz7ht6n3aq&RCPT=jason.liu@</strong></p>
+    <input type="text" id="param" placeholder="KEY=...&RCPT=...">
+    <button onclick="release()">確認放行</button>
+
+    <p id="msg"></p>
+
+    <script>
+    function release() {
+        const paramStr = document.getElementById("param").value.trim();
+        const searchParams = new URLSearchParams(paramStr);
+
+        const key = searchParams.get("KEY");
+        const rcpt = searchParams.get("RCPT");
+
+        if(!key || !rcpt){
+            document.getElementById("msg").innerText = "⚠️ 參數錯誤";
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("KEY", key);
+        formData.append("RCPT", rcpt);
+
+        fetch("/api/release", {method:"POST", body: formData})
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById("msg").innerText = d.success ? "✅ 放行完成" : "❌ "+d.message;
+        });
+    }
+    </script>
+</body>
+</html>
